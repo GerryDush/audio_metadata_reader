@@ -4,15 +4,14 @@ import 'dart:typed_data';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 
 void main() {
-  final track = File("Pieces.mp3");
+  final track = File("Free Loop - Daniel Powter.mp3");
 
   // Returns a condensate
   // Getting the image of a track can be heavy and slow the reading
-  final metadata = readMetadata(track, getImage: false);
+  AudioMetadata metadata = readMetadata(track, getImage: true);
 
-  print(metadata.title);
-  print(metadata.album);
-  print(metadata.duration);
+  print(metadata);
+
   // etc...
 
   // If you need ALL the metadata of a file (eg. MP3 has bpm)
@@ -26,36 +25,15 @@ void main() {
   updateMetadata(
     track,
     (metadata) {
-      switch (metadata) {
-        case Mp3Metadata m:
-          m.songName = "New title";
-          break;
-        case Mp4Metadata m:
-          m.title = "New title";
-          break;
-        case VorbisMetadata m:
-          m.title = ["New title"];
-          break;
-        case RiffMetadata m:
-          m.title = "New title";
-      }
+      metadata.setLyrics("I'm singing fuck");
     },
   );
 
-  // Or use the extension methods to update common properties
-  updateMetadata(
-    track,
-    (metadata) {
-      metadata.setTitle("New title");
-      metadata.setArtist("New artist");
-      metadata.setAlbum("New album");
-      metadata.setTrackNumber(1);
-      metadata.setYear(DateTime(2014));
-      metadata.setLyrics("I'm singing");
-      metadata.setGenres(["Rock", "Metal", "Salsa"]);
-      metadata.setPictures([
-        Picture(Uint8List.fromList([]), "image/png", PictureType.coverFront)
-      ]);
-    },
-  );
+  print('====================');
+  metadata = readMetadata(track, getImage: true);
+
+  print(metadata);
+  print('lyric: ${metadata.lyrics}');
 }
+
+
