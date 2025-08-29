@@ -207,7 +207,8 @@ class ID3v2Parser extends TagParser {
       processFrame(frame.id, frame.size);
     }
 
-    if (metadata.duration == null || metadata.duration == Duration.zero) {
+    // if (metadata.duration == null || metadata.duration == Duration.zero) {
+    if (true) {
       buffer.setPositionSync(size + 10);
 
       final mp3FrameHeader = _findFirstMp3Frame(buffer);
