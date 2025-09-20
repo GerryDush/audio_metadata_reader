@@ -284,7 +284,6 @@ class FlacParser extends TagParser {
           metadata.discTotal = int.parse(value);
           break;
         case "LYRICS":
-        print(value);
           metadata.lyric = value;
           break;
         default:
