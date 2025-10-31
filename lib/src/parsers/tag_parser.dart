@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-
+import 'package:audio_metadata_reader/src/utils/buffer.dart';
 import 'package:audio_metadata_reader/src/metadata/base.dart';
 
 /// Picture is a representation of the images we can find in an ID3 tag
@@ -134,5 +134,5 @@ abstract class TagParser {
   final bool fetchImage;
 
   TagParser({required this.fetchImage});
-  ParserTag parse(RandomAccessFile reader);
+  Future<ParserTag> parse(MyRandomAccessFile reader);
 }

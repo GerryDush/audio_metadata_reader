@@ -4,6 +4,7 @@ version: 1.4.2
 homepage: https://clementbeal.github.io/
 repository: https://github.com/ClementBeal/audio_metadata_reader
 issue_tracker: https://github.com/ClementBeal/audio_metadata_reader/issues
+publish_to: none
 
 topics:
   - audio
@@ -19,5 +20,9 @@ dependencies:
   charset: ^2.0.1
   intl: ^0.20.2
   mime: ^2.0.0
+  webdav_client:
+    git:
+      url: https://github.com/GerryDush/webdav_client.git
+      ref: v0.0.1
 dev_dependencies:
   test: ^1.26.2

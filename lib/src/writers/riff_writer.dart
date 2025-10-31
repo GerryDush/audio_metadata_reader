@@ -12,17 +12,16 @@ class RiffWriter extends BaseMetadataWriter<RiffMetadata> {
   late final Buffer buffer;
 
   @override
-  void write(File file, RiffMetadata metadata) {
+  Future<void> write(File file, RiffMetadata metadata) async{
     this.metadata = metadata;
-    print('fuck:${metadata}');
     final builder = BytesBuilder();
 
     final reader = file.openSync();
-    buffer = Buffer(randomAccessFile: reader);
+    buffer = await Buffer.create(randomAccessFile: FileRandomAccessFile(randomAccessFile: reader));
     reader.setPositionSync(0);
 
-    buffer.skip(12);
-    final newData = _parseChunks();
+    await buffer.skip(12);
+    final newData =await  _parseChunks();
 
     builder.add("RIFF".codeUnits);
     builder.add(intToUint32LE(newData.length));
@@ -33,25 +32,25 @@ class RiffWriter extends BaseMetadataWriter<RiffMetadata> {
     file.writeAsBytesSync(builder.toBytes());
   }
 
-  Uint8List _parseChunks() {
+  Future<Uint8List> _parseChunks() async{
     final builder = BytesBuilder();
 
-    while (buffer.fileCursor < buffer.randomAccessFile.lengthSync() - 8) {
-      final chunkIdBytes = buffer.read(4);
+    while (buffer.fileCursor < (await buffer.randomAccessFile.length()) - 8) {
+      final chunkIdBytes = await buffer.read(4);
       final chunkId = String.fromCharCodes(chunkIdBytes);
-      final chunkSizeBytes = buffer.read(4);
+      final chunkSizeBytes = await buffer.read(4);
       final chunkSize = getUint32LE(chunkSizeBytes);
 
       builder.add(chunkIdBytes);
 
       if (chunkId == "LIST") {
         // Peek at the next 4 bytes to check the LIST type
-        final listTypeBytes = buffer.read(4);
+        final listTypeBytes = await buffer.read(4);
         final listType = String.fromCharCodes(listTypeBytes);
 
         if (listType == "INFO") {
           // Skip old INFO data
-          buffer.skip(chunkSize - 4);
+          await buffer.skip(chunkSize - 4);
 
           // Write new LIST chunk with updated INFO
           final infoBuilder = BytesBuilder();
@@ -101,16 +100,16 @@ class RiffWriter extends BaseMetadataWriter<RiffMetadata> {
           // Keep the LIST chunk as-is
           builder.add(chunkSizeBytes);
           builder.add(listTypeBytes);
-          builder.add(buffer.read(chunkSize - 4));
+          builder.add(await buffer.read(chunkSize - 4));
         }
       } else {
         builder.add(chunkSizeBytes);
-        builder.add(buffer.read(chunkSize));
+        builder.add(await buffer.read(chunkSize));
       }
 
       // Handle padding if chunkSize is odd (WAV chunks are aligned to even sizes)
       if (chunkSize.isOdd) {
-        buffer.skip(1);
+        await buffer.skip(1);
         builder.addByte(0);
       }
     }

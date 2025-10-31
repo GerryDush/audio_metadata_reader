@@ -3,9 +3,119 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../../audio_metadata_reader.dart';
+import 'package:webdav_client/webdav_client.dart' as webdav;
+
+int ceilDivInt(int a, int b) => (a + b - 1) ~/ b;
+
+
+
+abstract class  MyRandomAccessFile{
+  Future<int> position();
+  Future<void> setPosition(int position);
+  Future<int> readInto(Uint8List buffer, [int start = 0, int? end]);
+  Future<int> length();
+  Future<void> close();
+  Future<Uint8List> read(int size);
+
+}
+
+class FileRandomAccessFile implements MyRandomAccessFile{
+  final RandomAccessFile randomAccessFile;
+
+  FileRandomAccessFile({required this.randomAccessFile});
+
+  @override
+  Future<int> length(){
+    return randomAccessFile.length();
+  }
+
+  @override
+  Future<int> position() {
+    return randomAccessFile.position();
+  }
+
+  @override
+  Future<void> setPosition(int position) {
+    return randomAccessFile.setPosition(position);
+  }
+
+  @override
+  Future<int> readInto(Uint8List buffer, [int start = 0, int? end]) {
+    return randomAccessFile.readInto(buffer, start, end);
+  }
+
+  @override
+  Future<void> close() async {
+    await randomAccessFile.close();
+  }
+
+  @override
+  Future<Uint8List> read(int size) async {
+    return await randomAccessFile.read(size);
+  }
+}
+
+class WebDavRandomAccessFile implements MyRandomAccessFile{
+  final webdav.Client client;
+  final String path;
+  int _position = 0;
+  int? _length;
+
+  WebDavRandomAccessFile({required this.client, required this.path});
+
+  @override
+  Future<int> length() async {
+    if(_length == null){
+      _length = await client.readContentLength(path);
+    }
+    return _length!;
+  }
+
+  @override
+  Future<int> position() async {
+    return _position;
+  }
+
+  @override
+  Future<void> setPosition(int position) async {
+    _position = position;
+  }
+
+  @override
+  Future<int> readInto(Uint8List buffer, [int start = 0, int? end]) async {
+    final toRead = (end ?? buffer.length) - start;
+    final rangeEnd = min(_position + toRead -1, await length() -1);
+    if(rangeEnd < _position){
+      return 0;
+    }
+    final data = await client.read(path, range: webdav.Range(start: _position, end: rangeEnd));
+    buffer.setRange(start, start + data.length, data);
+    _position += data.length;
+    return data.length;
+  }
+
+  @override
+  Future<void> close() async {
+    
+  }
+  @override
+  Future<Uint8List> read(int size) async {
+    final rangeEnd = min(_position + size -1, await length() -1);
+    if(rangeEnd < _position){
+      return Uint8List(0);
+    }
+    final data = await client.read(path, range: webdav.Range(start: _position, end: rangeEnd));
+    _position += data.length;
+    return data;
+  }
+}
+
+
+
+
 
 class Buffer {
-  final RandomAccessFile randomAccessFile;
+  final MyRandomAccessFile randomAccessFile;
   final Uint8List _buffer;
 
   /// It's like positionSync() but adapted with the buffer
@@ -22,16 +132,21 @@ class Buffer {
   static final int _bufferSize = 16384;
 
   /// The number of bytes remaining to be read from the file.
-  int get remainingBytes =>
-      (_bufferedBytes - _cursor) +
-      (randomAccessFile.lengthSync() - randomAccessFile.positionSync());
-
-  Buffer({required this.randomAccessFile}) : _buffer = Uint8List(_bufferSize) {
-    _fill();
+  Future<int> remainingBytes()async {
+    return (_bufferedBytes - _cursor) +
+      (await randomAccessFile.length() - await randomAccessFile.position());
   }
 
-  void _fill() {
-    _bufferedBytes = randomAccessFile.readIntoSync(_buffer);
+  Buffer._({required this.randomAccessFile}) : _buffer = Uint8List(_bufferSize);
+  
+  static Future<Buffer> create({required MyRandomAccessFile randomAccessFile}) async {
+    final buffer = Buffer._(randomAccessFile: randomAccessFile);
+    await buffer._fill();
+    return buffer;
+  }
+
+  Future<void> _fill() async {
+    _bufferedBytes = await randomAccessFile.readInto(_buffer);
     _cursor = 0;
   }
 
@@ -48,7 +163,7 @@ class Buffer {
     }
   }
 
-  Uint8List read(int size) {
+  Future<Uint8List> read(int size) async {
     fileCursor += size;
 
     // if we read something big (~100kb), we can read it directly from file
@@ -60,8 +175,8 @@ class Buffer {
       if (remaining > 0) {
         result.setRange(0, remaining, _buffer, _cursor);
       }
-      randomAccessFile.readIntoSync(result, remaining);
-      _fill();
+      await randomAccessFile.readInto(result, remaining);
+      await _fill();
       return result;
     }
 
@@ -107,18 +222,18 @@ class Buffer {
   ///
   /// May return a smaller list if [remainingBytes] is
   /// less than [size].
-  Uint8List readAtMost(int size) {
-    final readSize = min(size, remainingBytes);
-    return read(readSize);
+  Future<Uint8List> readAtMost(int size) async {
+    final readSize = min(size, await remainingBytes());
+    return await read(readSize);
   }
 
-  void setPositionSync(int position) {
+  Future<void> setPosition(int position)async {
     fileCursor = position;
-    randomAccessFile.setPositionSync(position);
-    _fill();
+    await randomAccessFile.setPosition(position);
+    await _fill();
   }
 
-  void skip(int length) {
+  Future<void> skip(int length) async{
     // Calculate how many bytes we can skip in the current buffer
     final remainingInBuffer = _bufferedBytes - _cursor;
 
@@ -129,20 +244,27 @@ class Buffer {
       _cursor += length;
     } else {
       // Calculate the actual file position we need to skip to
-      int currentPosition = randomAccessFile.positionSync() - remainingInBuffer;
+      int currentPosition = (await randomAccessFile.position()) - remainingInBuffer;
       fileCursor += currentPosition;
       // Skip to the new position
-      randomAccessFile.setPositionSync(currentPosition + length);
+      await randomAccessFile.setPosition(currentPosition + length);
       // Refill the buffer at the new position
-      _fill();
+      await _fill();
     }
+  }
+
+  Future<int> lengthSync() async{
+    return randomAccessFile.length();
+  }
+
+  Future<void> closeSync() async {
+    await randomAccessFile.close();
   }
 }
 
-
 extension BufferRead on Buffer {
-  int readUint32() {
-    final bytes = read(4);
+  Future<int> readUint32() async {
+    final bytes = await read(4);
     // MP4 box 是 big-endian
     return (bytes[0] << 24) |
            (bytes[1] << 16) |

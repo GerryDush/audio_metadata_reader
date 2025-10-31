@@ -74,25 +74,25 @@ class MP4Parser extends TagParser {
   MP4Parser({fetchImage = false}) : super(fetchImage: fetchImage);
 
   @override
-  ParserTag parse(RandomAccessFile reader) {
-    reader.setPositionSync(0);
-    buffer = Buffer(randomAccessFile: reader);
+  Future<ParserTag> parse(MyRandomAccessFile reader) async{
+    await reader.setPosition(0);
+    buffer = await Buffer.create(randomAccessFile: reader);
 
-    final lengthFile = reader.lengthSync();
+    final lengthFile = await reader.length();
 
     while (buffer.fileCursor < lengthFile) {
-      final box = _readBox(buffer);
+      final box = await _readBox(buffer);
 
       if (supportedBox.contains(box.type)) {
-        processBox(buffer, box);
+        await processBox(buffer, box);
       } else {
         // We substract 8 to the box size because we already read the data for
         // the box header
-        buffer.skip(box.size - 8);
+        await buffer.skip(box.size - 8);
       }
     }
 
-    reader.closeSync();
+    await reader.close();
 
     return tags;
   }
@@ -103,8 +103,8 @@ class MP4Parser extends TagParser {
   /// [0...3] -> box size (header + body)
   /// [4...7] -> box name (ASCII)
   ///
-  BoxHeader _readBox(Buffer buffer) {
-    final headerBytes = buffer.read(8);
+  Future<BoxHeader> _readBox(Buffer buffer) async {
+    final headerBytes = await buffer.read(8);
     final parser = ByteData.sublistView(headerBytes);
 
     final boxSize = parser.getUint32(0);
@@ -130,20 +130,20 @@ class MP4Parser extends TagParser {
 
   int mdatSize = 0;
   int durationSeconds = 0;
-  void processBox(Buffer buffer, BoxHeader box) {
+  Future<void> processBox(Buffer buffer, BoxHeader box) async {
     if (box.type == "moov") {
-      parseRecurvise(buffer, box);
+      await parseRecurvise(buffer, box);
     } else if (box.type == "mdat") {
-      buffer.setPositionSync(buffer.fileCursor + box.size - 8);
+      await buffer.setPosition(buffer.fileCursor + box.size - 8);
       mdatSize = box.size;
       if (durationSeconds != 0) {
         tags.bitrate = (mdatSize * 8 / durationSeconds).toInt();
       }
     } else if (box.type == "mvhd") {
-      final version = buffer.read(1)[0];
+      final version = (await buffer.read(1))[0];
       // version 0 has 100 bytes
       // version 1 has 112 bytes
-      final bytes = buffer.read(version == 1 ? 111 : 99);
+      final bytes = await buffer.read(version == 1 ? 111 : 99);
 
       int timeScale = 0;
       int timeUnit = 0;
@@ -163,26 +163,26 @@ class MP4Parser extends TagParser {
         tags.bitrate = (mdatSize * 8 / durationSeconds).toInt();
       }
     } else if (box.type == "udta") {
-      parseRecurvise(buffer, box);
+      await parseRecurvise(buffer, box);
     } else if (box.type == "ilst") {
-      parseRecurvise(buffer, box);
+      await parseRecurvise(buffer, box);
     } else if (["trak", "mdia", "minf", "stbl", "stsd"].contains(box.type)) {
-      parseRecurvise(buffer, box);
+      await parseRecurvise(buffer, box);
     } else if (box.type == "meta") {
-      buffer.read(4);
+      await buffer.read(4);
 
-      parseRecurvise(buffer, box);
+      await parseRecurvise(buffer, box);
     } else if (box.type[0] == "©" ||
         ["gnre", "trkn", "disk", "tmpo", "cpil", "too", "covr", "pgap", "gen"]
             .contains(box.type)) {
       final boxName = (box.type[0] == "©") ? box.type.substring(1) : box.type;
 
       if (boxName == "covr" && !fetchImage) {
-        buffer.skip(box.size - 8);
+        await buffer.skip(box.size - 8);
         return;
       }
 
-      final metadataValue = buffer.read(box.size - 8);
+      final metadataValue = await buffer.read(box.size - 8);
 
       // sometimes the data is stored inside another box called `data`
       // we try to find out if the data contains the box type "data" (0:4 is the box size)
@@ -249,15 +249,15 @@ class MP4Parser extends TagParser {
           break;
       }
     } else if (box.type == "----") {
-      final mean = _readBox(buffer);
-      String.fromCharCodes(buffer.read(mean.size - 8)); // mean value
+      final mean =await  _readBox(buffer);
+      String.fromCharCodes(await buffer.read(mean.size - 8)); // mean value
 
-      final name = _readBox(buffer);
+      final name =await  _readBox(buffer);
 
       final nameValue =
-          String.fromCharCodes(buffer.read(name.size - 8).sublist(4));
-      final dataBox = _readBox(buffer);
-      final data = buffer.read(dataBox.size - 8);
+          String.fromCharCodes((await buffer.read(name.size - 8)).sublist(4));
+      final dataBox =await  _readBox(buffer);
+      final data = await buffer.read(dataBox.size - 8);
       final finalValue = String.fromCharCodes(data.sublist(8));
 
       switch (nameValue) {
@@ -270,11 +270,11 @@ class MP4Parser extends TagParser {
         default:
       }
     } else if (box.type == "mp4a") {
-      final bytes = buffer.read(box.size - 8);
+      final bytes = await buffer.read(box.size - 8);
       // tags.bitrate = timeScale;
       tags.sampleRate = getUint32(bytes.sublist(22, 26));
     } else if (box.type == "alac") {
-      final bytes = buffer.read(box.size - 8); // 减去 header
+      final bytes = await buffer.read(box.size - 8); // 减去 header
       final sampleRate = ((bytes[24] << 24) |
               (bytes[25] << 16) |
               (bytes[26] << 8) |
@@ -282,12 +282,12 @@ class MP4Parser extends TagParser {
           16;
       tags.sampleRate = sampleRate;
     } else {
-      buffer.setPositionSync(buffer.fileCursor + box.size - 8);
+      await buffer.setPosition(buffer.fileCursor + box.size - 8);
     }
   }
 
   /// Parse a box with multiple sub boxes.
-  void parseRecurvise(Buffer buffer, BoxHeader box) {
+  Future<void> parseRecurvise(Buffer buffer, BoxHeader box) async {
     final limit = box.size - 8;
     int offset = 0;
 
@@ -295,22 +295,22 @@ class MP4Parser extends TagParser {
     if ("meta" == box.type) {
       offset += 4;
     } else if (box.type == "stsd") {
-      buffer.read(4);
-      int entryCount = buffer.readUint32();
+      await buffer.read(4);
+      int entryCount =await buffer.readUint32();
       for (int i = 0; i < entryCount; i++) {
-        final newBox = _readBox(buffer); // 会读到 mp4a 或 alac
-        processBox(buffer, newBox);
+        final newBox =await  _readBox(buffer); // 会读到 mp4a 或 alac
+        await processBox(buffer, newBox);
       }
       return;
     }
 
     while (offset < limit) {
-      final newBox = _readBox(buffer);
+      final newBox =await  _readBox(buffer);
 
       if (supportedBox.contains(newBox.type)) {
-        processBox(buffer, newBox);
+        await processBox(buffer, newBox);
       } else {
-        buffer.skip(newBox.size - 8);
+        await buffer.skip(newBox.size - 8);
       }
 
       offset += newBox.size;
@@ -319,10 +319,10 @@ class MP4Parser extends TagParser {
 
   /// To detect if this parser can be used to parse this file, we need to detect
   /// the first box. It should be a `ftyp` box
-  static bool canUserParser(RandomAccessFile reader) {
-    reader.setPositionSync(4);
+  static Future<bool> canUserParser(MyRandomAccessFile reader) async {
+    await reader.setPosition(4);
 
-    final headerBytes = reader.readSync(4);
+    final headerBytes = await reader.read(4);
     final boxName = String.fromCharCodes(headerBytes);
 
     return boxName == "ftyp";
