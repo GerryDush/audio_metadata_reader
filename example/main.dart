@@ -2,16 +2,25 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
+import 'package:audio_metadata_reader/src/parser.dart';
+import 'package:webdav_client/webdav_client.dart' as webdav;
 
-void main() {
-  final track = File("Carpenters - Yesterday Once More.mp3");
+final client = webdav.newClient(
+  "https://xxx.xxx.xx/dav",
+  user: 'xxx',
+  password: 'xxxxxx',
+);
 
-  // Returns a condensate
-  // Getting the image of a track can be heavy and slow the reading
-  AudioMetadata metadata = readMetadata(track, getImage: true);
-// print(metadata);
-  // print(metadata);
-
+void main() async {
+  final dirs = await client.readDir('/public/Music');
+  int i = 0 ;
+  dirs.forEach((v) {
+    readMetadataWebDav(client, v.path!, getImage: true).then((res) {
+        print(res);
+        i++;
+        print(i);
+      }).catchError((v){
+        print(v);
+      });
+  });
 }
-
-
