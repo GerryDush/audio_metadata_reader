@@ -21,19 +21,14 @@ Future<void> writeMetadata(File track, ParserTag metadata) async{
   final reader = FileRandomAccessFile(randomAccessFile: track.openSync());
 
   if (await ID3v2Parser.canUserParser(reader)) {
-    print(1);
     Id3v4Writer().write(track, metadata as Mp3Metadata);
   } else if (await MP4Parser.canUserParser(reader)) {
-    print(2);
     Mp4Writer().write(track, metadata as Mp4Metadata);
   } else if (await FlacParser.canUserParser(reader)) {
-    print(3);
     FlacWriter().write(track, metadata as VorbisMetadata);
   } else if (await RiffParser.canUserParser(reader)) {
-    print(4);
     RiffWriter().write(track, metadata as RiffMetadata);
   } else if (await ID3v1Parser.canUserParser(reader)) {
-    print(5);
     ID3v1Writer().write(track, metadata as Mp3Metadata);
   }
 }

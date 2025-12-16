@@ -197,7 +197,6 @@ class ID3v2Parser extends TagParser {
 
 
     while (offset < size) {
-      print(1222);
       final frame = await getFrame(reader, majorVersion == 4);
 
       if (frame == null) {
@@ -210,7 +209,6 @@ class ID3v2Parser extends TagParser {
       await processFrame(frame.id, frame.size);
       
     }
-    print(14444);
 
     // if (metadata.duration == null || metadata.duration == Duration.zero) {
     if (true) {
@@ -362,7 +360,6 @@ class ID3v2Parser extends TagParser {
     // it's because the biggest thing to get in the cover
     // sometimes, we don't want to read so we have to read the content
     // at the very last time
-print(frameId);
     final handlers = switch (frameId) {
       "APIC" => () async {
           if (fetchImage) {
@@ -585,9 +582,7 @@ print(frameId);
           metadata.encoderSoftware = getTextFromFrame(content);
         },
       _ => () async {
-        print(1101001);
           await buffer.skip(size);
-          print(20020);
         }
     };
 

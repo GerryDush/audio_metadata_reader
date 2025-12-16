@@ -84,7 +84,6 @@ class RiffWriter extends BaseMetadataWriter<RiffMetadata> {
           if (metadata.copyright != null) {
             infoBuilder.add(_writeChunk("ICOP", metadata.copyright!));
           }
-          print(metadata.lyric);
           if (metadata.lyric != null) {
             infoBuilder.add(_writeChunk("ICMT", metadata.lyric!));
           }

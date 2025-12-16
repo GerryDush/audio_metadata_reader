@@ -14,13 +14,16 @@ final client = webdav.newClient(
 void main() async {
   final dirs = await client.readDir('/public/Music');
   int i = 0 ;
+  int j = 0 ;
   dirs.forEach((v) {
     readMetadataWebDav(client, v.path!, getImage: true).then((res) {
-        print(res);
+        // print(res);
         i++;
         print(i);
       }).catchError((v){
         print(v);
       });
+      j++;
+      print('j: $j');
   });
 }
