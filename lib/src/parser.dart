@@ -82,7 +82,7 @@ Future<AudioMetadata> readMetadata(File track, {bool getImage = false}) async {
       return newMetadata;
     } else if (await MP4Parser.canUserParser(reader)) {
       final mp4Metadata =
-          MP4Parser(fetchImage: getImage).parse(reader) as Mp4Metadata;
+          await MP4Parser(fetchImage: getImage).parse(reader) as Mp4Metadata;
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -112,7 +112,7 @@ Future<AudioMetadata> readMetadata(File track, {bool getImage = false}) async {
       return newMetadata;
     } else if (await OGGParser.canUserParser(reader)) {
       final oggMetadata =
-          OGGParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
+          await OGGParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -136,7 +136,7 @@ Future<AudioMetadata> readMetadata(File track, {bool getImage = false}) async {
 
       return newMetadata;
     } else if (await RiffParser.canUserParser(reader)) {
-      final riffMetadata = RiffParser().parse(reader) as RiffMetadata;
+      final riffMetadata = await RiffParser().parse(reader) as RiffMetadata;
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -161,7 +161,7 @@ Future<AudioMetadata> readMetadata(File track, {bool getImage = false}) async {
 
       return newMetadata;
     } else if (await ID3v1Parser.canUserParser(reader)) {
-      final mp3Metadata = ID3v1Parser().parse(reader) as Mp3Metadata;
+      final mp3Metadata = await ID3v1Parser().parse(reader) as Mp3Metadata;
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -217,17 +217,17 @@ Future<ParserTag> readAllMetadata(File track, {bool getImage = true}) async {
 
   try {
     if (await ID3v2Parser.canUserParser(reader)) {
-      return ID3v2Parser(fetchImage: getImage).parse(reader);
+      return await ID3v2Parser(fetchImage: getImage).parse(reader);
     } else if (await FlacParser.canUserParser(reader)) {
-      return FlacParser(fetchImage: getImage).parse(reader);
+      return await FlacParser(fetchImage: getImage).parse(reader);
     } else if (await MP4Parser.canUserParser(reader)) {
-      return MP4Parser(fetchImage: getImage).parse(reader);
+      return await MP4Parser(fetchImage: getImage).parse(reader);
     } else if (await OGGParser.canUserParser(reader)) {
-      return OGGParser(fetchImage: getImage).parse(reader);
+      return await OGGParser(fetchImage: getImage).parse(reader);
     } else if (await ID3v2Parser.isID3v1(reader)) {
-      return ID3v1Parser().parse(reader);
+      return await ID3v1Parser().parse(reader);
     } else if (await RiffParser.canUserParser(reader)) {
-      return RiffParser().parse(reader);
+      return await RiffParser().parse(reader);
     }
   } catch (e, trace) {
     print(trace);

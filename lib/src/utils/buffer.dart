@@ -193,7 +193,7 @@ class Buffer {
       result.setRange(0, remaining, _buffer, _cursor);
 
       // Refill the buffer and adjust the cursor
-      _fill();
+      await _fill();
       int filled = remaining;
 
       // Continue filling `result` with new buffer data
@@ -208,7 +208,7 @@ class Buffer {
 
         // Fill buffer again if more data is needed
         if (filled < size) {
-          _fill();
+          await _fill();
           // Avoid infinite loops if we are trying to read
           // more data than there is left in the file.
           _throwOnNoData();
